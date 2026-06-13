@@ -74,7 +74,11 @@ const verifyChallenge = async (challengeId, otp) => {
     error.statusCode = 429;
     throw error;
   }
-  const matches = await bcrypt.compare(otp, challenge.otpHash);
+  
+  // 👉 FIX: OTP ko strictly String me convert kar rahe hain taaki bcrypt fail na ho
+  const stringOtp = String(otp).trim();
+  
+  const matches = await bcrypt.compare(stringOtp, challenge.otpHash);
   if (!matches) {
     challenge.attempts += 1;
     await challenge.save();
