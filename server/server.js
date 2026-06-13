@@ -96,6 +96,14 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Welcome to CareGrid API. System is fully operational.',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use((req, res) => res.status(404).json({ success: false, message: 'Route not found' }));
 app.use(errorHandler);
 
