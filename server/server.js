@@ -1,6 +1,4 @@
 require('dotenv').config();
-const dns = require('dns'); // Inbuilt Node module
-dns.setDefaultResultOrder('ipv4first');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -16,7 +14,7 @@ const authRoutes = require('./routes/authRoutes');
 mongoose.set('sanitizeFilter', true);
 mongoose.set('strictQuery', true);
 
-const requiredEnvVars = ['PORT', 'MONGO_URI', 'OPENAI_API_KEY', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET', 'JWT_SECRET', 'EMAIL_USER', 'EMAIL_APP_PASSWORD'];
+const requiredEnvVars = ['PORT', 'MONGO_URI', 'OPENAI_API_KEY', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET', 'JWT_SECRET', 'EMAIL_USER', 'BREVO_API_KEY'];
 requiredEnvVars.forEach(envVar => {
   if (!process.env[envVar]) {
     logger.error(`Fatal Error: Missing required environment variable ${envVar}`);
