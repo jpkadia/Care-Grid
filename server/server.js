@@ -73,7 +73,12 @@ mongoose.connect(process.env.MONGO_URI)
     const { verifyEmailConnection } = require('./services/emailService');
     verifyEmailConnection()
       .then(() => logger.info('Email service connected successfully'))
-      .catch(error => logger.error('Email service connection failed', { message: error.message }));
+      .catch(error => logger.error('Email service connection failed after retries', {
+        message: error.message,
+        code: error.code,
+        command: error.command,
+        responseCode: error.responseCode
+      }));
   })
   .catch(err => {
     logger.error("DB Connection Error:", err);
