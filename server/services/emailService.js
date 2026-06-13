@@ -70,7 +70,10 @@ const getTransporter = () => {
       maxMessages: 50,
       connectionTimeout: 10000,
       greetingTimeout: 10000,
-      socketTimeout: 20000
+      socketTimeout: 20000,
+      // Ye ek line add karni hai IPv6 ko bypass karne ke liye 👇
+      tls: { rejectUnauthorized: false }, 
+      family: 4 
     });
   }
   return transporter;
