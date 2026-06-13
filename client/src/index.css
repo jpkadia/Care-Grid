@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "DM Sans", sans-serif;
+  --font-sans: "DM Sans", sans-serif;
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-width: 320px;
+    font-family: "DM Sans", sans-serif;
+    background: #f5f7fb;
+    color: #14213d;
+  }
+  img, video { max-width: 100%; }
+  button, input, select, textarea { font: inherit; }
+  h1, h2, h3, h4 { font-family: "Manrope", sans-serif; letter-spacing: -0.03em; }
+  ::selection { background: #bff3e4; color: #073b35; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+}
+
+@layer components {
+  .app-shell { background: radial-gradient(circle at top left, #e8f8f3 0, transparent 28%), #f5f7fb; }
+  .glass-panel { background: rgba(255,255,255,.82); border: 1px solid rgba(226,232,240,.8); backdrop-filter: blur(20px); box-shadow: 0 20px 50px rgba(15,23,42,.06); }
+  .dashboard-card { background: #fff; border: 1px solid #e8edf3; border-radius: 24px; box-shadow: 0 12px 32px rgba(15,23,42,.045); }
+  .field-modern { width: 100%; border: 1px solid #dfe7ef; background: #f8fafc; border-radius: 14px; padding: .8rem 1rem; outline: none; transition: .2s ease; }
+  .field-modern:focus { border-color: #13a88a; background: white; box-shadow: 0 0 0 4px rgba(19,168,138,.12); }
+  .btn-primary { border-radius: 14px; background: linear-gradient(135deg,#13a88a,#087f74); color: white; font-weight: 700; box-shadow: 0 10px 24px rgba(13,148,136,.2); transition: .2s ease; }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(13,148,136,.28); }
+  .animate-rise { animation: rise .6s cubic-bezier(.2,.8,.2,1) both; }
+  .animate-float { animation: float 5s ease-in-out infinite; }
+  .gallery-scroll { scrollbar-width: none; }
+  .gallery-scroll::-webkit-scrollbar { display: none; }
+  .appointment-modal-scroll { scrollbar-width: none; }
+  .appointment-modal-scroll::-webkit-scrollbar { display: none; }
+  @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes float { 50% { transform: translateY(-8px); } }
+}
+
+.dark body, .dark .app-shell { background: #07110f; color: #e7f3f0; }
+.dark .dashboard-card, .dark .glass-panel { background: #0d1d1a; border-color: #20332f; color: #e7f3f0; }
+.dark .field-modern { background: #10231f; border-color: #29423c; color: #e7f3f0; }
+.dark .bg-white { background-color: #0d1d1a !important; }
+.dark .bg-slate-50, .dark .bg-slate-50\/80, .dark .bg-slate-100 { background-color: #10231f !important; }
+.dark .text-slate-900, .dark .text-slate-950, .dark .text-slate-800, .dark .text-slate-700 { color: #e7f3f0 !important; }
+.dark .text-slate-500, .dark .text-slate-600, .dark .text-slate-400 { color: #9bb5ae !important; }
+.dark .border-slate-100, .dark .border-slate-200, .dark .border-slate-300 { border-color: #29423c !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
