@@ -4,7 +4,7 @@ const { uploadToCloudinary, deleteFromCloudinary } = require('./cloudinary');
 const personalFields = ['education', 'speciality', 'clinicName', 'location', 'phone', 'workDays', 'visitingHours'];
 const contentFields = ['about', 'tagline', 'heroHeadline'];
 
-const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+const hasOwn = (object, key) => object != null && Object.prototype.hasOwnProperty.call(object, key);
 
 const uploadImages = async files => {
   const results = await Promise.allSettled(files.map(file => uploadToCloudinary(file.buffer, 'image')));
@@ -55,8 +55,8 @@ const applyDoctorProfileUpdate = async ({ doctor, body, files, allowEmailChange 
 
     if (allowEmailChange && hasOwn(body, 'email')) {
       const email = body.email.toLowerCase().trim();
-      const duplicate = await Doctor.exists({ _id: { $ne: doctor._id }, 'personalDetails.email': email });
-      if (duplicate) {
+      const duplicate = await Doctor.findOne({ 'personalDetails.email': email }).select('_id');
+      if (duplicate && !duplicate._id.equals(doctor._id)) {
         const error = new Error('Another doctor account already uses this email address.');
         error.statusCode = 409;
         throw error;

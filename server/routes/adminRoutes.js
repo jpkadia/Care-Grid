@@ -32,7 +32,7 @@ router.put(
     { name: 'sliderImages', maxCount: 8 }
   ]),
   upload.validateImages,
-  validate(updateSchema),
+  validate(updateSchema), // Validation wapas on kar di gayi hai
   adminController.updateDoctorAsAdmin
 );
 

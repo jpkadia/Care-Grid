@@ -85,9 +85,7 @@ const SuperAdminDashboard = () => {
       heroHeadline: d.aiContent?.heroHeadline || '',
       about: d.aiContent?.about || '',
       services: d.aiContent?.services ? d.aiContent.services.join(', ') : '',
-      // YE DO LINES ADD KARNI HAIN 👇
-      photoUrl: d.photoUrl || '', 
-      existingSliderImages: d.sliderImages ? JSON.stringify(d.sliderImages) : '[]'
+      // Extra stringified fields hata diye gaye, jinki wajah se confusion ho rahi thi
     });
     setProfilePhoto(null);
     setSliderImages([]);

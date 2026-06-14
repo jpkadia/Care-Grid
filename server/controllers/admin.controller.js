@@ -1,3 +1,5 @@
+
+const logger = require('../utils/logger');
 const bcrypt = require('bcryptjs');
 const Admin = require('../models/Admin');
 const Doctor = require('../models/Doctor');
@@ -85,8 +87,8 @@ exports.updateDoctorAsAdmin = async (req, res, next) => {
     res.json({ success: true, data: doctorResponse });
 
   } catch (error) {
-    // ⚠️ YE LINE ADD KAREIN: 
-    console.error("CRASH ERROR:", error); 
+    // Ab proper global error handler trigger hoga aur exact field error UI me dikhega
+    logger.error("SUPER ADMIN DOCTOR UPDATE ERROR:", error);
     next(error);
   }
 };
