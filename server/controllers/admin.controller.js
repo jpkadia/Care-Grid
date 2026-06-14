@@ -75,6 +75,7 @@ exports.updateDoctorAsAdmin = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Doctor not found" });
     }
 
+    // Yahan hum try karenge, agar crash hua toh error log hoga
     const doctorResponse = await applyDoctorProfileUpdate({
       doctor,
       body: req.body,
@@ -84,6 +85,8 @@ exports.updateDoctorAsAdmin = async (req, res, next) => {
     res.json({ success: true, data: doctorResponse });
 
   } catch (error) {
+    // ⚠️ YE LINE ADD KAREIN: 
+    console.error("CRASH ERROR:", error); 
     next(error);
   }
 };

@@ -84,7 +84,10 @@ const SuperAdminDashboard = () => {
       tagline: d.aiContent?.tagline || '',
       heroHeadline: d.aiContent?.heroHeadline || '',
       about: d.aiContent?.about || '',
-      services: d.aiContent?.services ? d.aiContent.services.join(', ') : ''
+      services: d.aiContent?.services ? d.aiContent.services.join(', ') : '',
+      // YE DO LINES ADD KARNI HAIN 👇
+      photoUrl: d.photoUrl || '', 
+      existingSliderImages: d.sliderImages ? JSON.stringify(d.sliderImages) : '[]'
     });
     setProfilePhoto(null);
     setSliderImages([]);
