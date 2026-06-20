@@ -32,9 +32,20 @@ if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1);
 
 app.use(helmet());
 
+const healthCheck = (req, res) => {
+  const databaseConnected = mongoose.connection.readyState === 1;
+  res.status(databaseConnected ? 200 : 503).json({
+    success: databaseConnected,
+    status: databaseConnected ? 'healthy' : 'database-unavailable'
+  });
+};
+
+app.get('/api/health', healthCheck);
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
   max: 100, 
+  skip: req => req.path === '/api/health',
   message: { success: false, message: 'Too many requests from this IP, please try again after 15 minutes' }
 });
 app.use(limiter);
@@ -88,13 +99,6 @@ mongoose.connect(process.env.MONGO_URI)
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
-app.get('/api/health', (req, res) => {
-  const databaseConnected = mongoose.connection.readyState === 1;
-  res.status(databaseConnected ? 200 : 503).json({
-    success: databaseConnected,
-    status: databaseConnected ? 'healthy' : 'database-unavailable'
-  });
-});
 
 app.get('/', (req, res) => {
   res.status(200).json({
