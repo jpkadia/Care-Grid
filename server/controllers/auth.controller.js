@@ -6,7 +6,7 @@ const { issueChallenge } = require('../services/otpService');
 exports.requestRegistrationOtp = async (req, res, next) => {
   try {
     const existing = await Doctor.exists({ 'personalDetails.email': req.body.email });
-    if (existing) return res.status(409).json({ success: false, message: 'This email is already registered.' });
+    if (existing) return res.status(409).json({ success: false, message: 'This email is already registered.', errors: { email: 'This email is already registered.' } });
     const challenge = await issueChallenge({ accountType: 'doctor', purpose: 'registration', email: req.body.email });
     res.json({ success: true, message: 'Verification code sent to your email', ...challenge });
   } catch (error) {

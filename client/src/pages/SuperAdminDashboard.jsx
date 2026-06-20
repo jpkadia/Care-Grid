@@ -8,6 +8,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import { useUi } from '../components/UiProvider';
 import { clearSessionToken, getSessionToken } from '../utils/auth';
 import FileUpload from '../components/FileUpload';
+import { firstError, getApiFieldErrors, validateDoctorUpdate } from '../utils/formValidation';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ const SuperAdminDashboard = () => {
   const [editData, setEditData] = useState({});
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [sliderImages, setSliderImages] = useState([]);
+  const [editErrors, setEditErrors] = useState({});
   const [updateLoading, setUpdateLoading] = useState(false);
   const [appointments, setAppointments] = useState([]);
 
@@ -89,27 +91,52 @@ const SuperAdminDashboard = () => {
     });
     setProfilePhoto(null);
     setSliderImages([]);
+    setEditErrors({});
   };
 
   const handleEditChange = (e) => {
     setEditData({ ...editData, [e.target.name]: e.target.value });
+    setEditErrors(current => {
+      if (!current[e.target.name]) return current;
+      const next = { ...current };
+      delete next[e.target.name];
+      return next;
+    });
   };
 
   const handleProfilePhoto = (e) => {
     const file = e.target.files[0];
-    if (file && file.size > 5 * 1024 * 1024) return toast('Profile photo must be smaller than 5MB.', 'error');
+    if (file && file.size > 5 * 1024 * 1024) {
+      setEditErrors(current => ({ ...current, profilePhoto: 'Profile photo must be smaller than 5MB.' }));
+      return;
+    }
     setProfilePhoto(file);
+    setEditErrors(current => ({ ...current, profilePhoto: '' }));
   };
 
   const handleSliderImages = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 8) return toast('You can upload a maximum of 8 clinic photos.', 'error');
-    if (files.some(file => file.size > 5 * 1024 * 1024)) return toast('Each clinic photo must be smaller than 5MB.', 'error');
+    if (files.length > 8) {
+      setEditErrors(current => ({ ...current, sliderImages: 'You can upload a maximum of 8 clinic photos.' }));
+      return;
+    }
+    if (files.some(file => file.size > 5 * 1024 * 1024)) {
+      setEditErrors(current => ({ ...current, sliderImages: 'Each clinic photo must be smaller than 5MB.' }));
+      return;
+    }
     setSliderImages(files);
+    setEditErrors(current => ({ ...current, sliderImages: '' }));
   };
 
   const handleUpdateSubmit = async (e) => {
     e.preventDefault();
+    const errors = validateDoctorUpdate(editData);
+    setEditErrors(errors);
+    const message = firstError(errors);
+    if (message) {
+      toast(message, 'error');
+      return;
+    }
     setUpdateLoading(true);
     try {
       const token = getSessionToken('superAdminToken');
@@ -137,6 +164,7 @@ const SuperAdminDashboard = () => {
         fetchDoctors();
       }
     } catch (err) {
+      setEditErrors(getApiFieldErrors(err));
       toast(err.response?.data?.message || "Failed to update doctor. Please check your connection and try again.", 'error');
       if (err.response?.status === 401 || err.response?.status === 403) handleLogout();
     } finally {
@@ -145,6 +173,7 @@ const SuperAdminDashboard = () => {
   };
 
   const inputClass = "field-modern text-sm";
+  const errorText = message => message ? <p className="mt-1.5 text-xs font-bold text-red-600">{message}</p> : null;
 
   if (loading) return <div className="min-h-screen flex items-center justify-center app-shell text-teal-700 text-xl font-bold"><i className="fas fa-circle-notch animate-spin mr-3"></i>Initializing network...</div>;
 
@@ -235,41 +264,41 @@ const SuperAdminDashboard = () => {
             </div>
             
             <div className="overflow-y-auto p-4 sm:p-6">
-                <form id="superAdminEditForm" onSubmit={handleUpdateSubmit} className="space-y-6">
+                <form id="superAdminEditForm" onSubmit={handleUpdateSubmit} className="space-y-6" noValidate>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Doctor Name</label><input type="text" name="name" value={editData.name} onChange={handleEditChange} className={inputClass} required /></div>
-                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Qualification</label><input type="text" name="education" value={editData.education} onChange={handleEditChange} className={inputClass} required /></div>
-                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Speciality</label><input type="text" name="speciality" value={editData.speciality} onChange={handleEditChange} className={inputClass} required /></div>
-                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Clinic Name</label><input type="text" name="clinicName" value={editData.clinicName} onChange={handleEditChange} className={inputClass} required /></div>
-                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Phone Number</label><input type="tel" name="phone" inputMode="numeric" pattern="\d{10}" minLength="10" maxLength="10" title="Enter exactly 10 digits" value={editData.phone} onChange={(e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10); handleEditChange(e); }} className={inputClass} required /></div>
-                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Email Address</label><input type="email" name="email" value={editData.email} onChange={handleEditChange} className={inputClass} required /></div>
+                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Doctor Name</label><input type="text" name="name" value={editData.name} onChange={handleEditChange} className={inputClass} required />{errorText(editErrors.name)}</div>
+                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Qualification</label><input type="text" name="education" value={editData.education} onChange={handleEditChange} className={inputClass} required />{errorText(editErrors.education)}</div>
+                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Speciality</label><input type="text" name="speciality" value={editData.speciality} onChange={handleEditChange} className={inputClass} required />{errorText(editErrors.speciality)}</div>
+                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Clinic Name</label><input type="text" name="clinicName" value={editData.clinicName} onChange={handleEditChange} className={inputClass} required />{errorText(editErrors.clinicName)}</div>
+                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Phone Number</label><input type="tel" name="phone" inputMode="numeric" pattern="\d{10}" minLength="10" maxLength="10" title="Enter exactly 10 digits" value={editData.phone} onChange={(e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10); handleEditChange(e); }} className={inputClass} required />{errorText(editErrors.phone)}</div>
+                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Email Address</label><input type="email" name="email" value={editData.email} onChange={handleEditChange} className={inputClass} required />{errorText(editErrors.email)}</div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Clinic Address</label><textarea name="location" value={editData.location} onChange={handleEditChange} rows="2" className={inputClass} required></textarea></div>
+                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Clinic Address</label><textarea name="location" value={editData.location} onChange={handleEditChange} rows="2" className={inputClass} required></textarea>{errorText(editErrors.location)}</div>
                         <div className="flex flex-col sm:flex-row gap-4">
-                            <div className="flex-1"><label className="block text-xs font-bold text-slate-600 mb-1">Work Days</label><input type="text" name="workDays" value={editData.workDays} onChange={handleEditChange} className={inputClass} required /></div>
-                            <div className="flex-1"><label className="block text-xs font-bold text-slate-600 mb-1">Visiting Hours</label><input type="text" name="visitingHours" value={editData.visitingHours} onChange={handleEditChange} className={inputClass} required /></div>
+                            <div className="flex-1"><label className="block text-xs font-bold text-slate-600 mb-1">Work Days</label><input type="text" name="workDays" value={editData.workDays} onChange={handleEditChange} className={inputClass} required />{errorText(editErrors.workDays)}</div>
+                            <div className="flex-1"><label className="block text-xs font-bold text-slate-600 mb-1">Visiting Hours</label><input type="text" name="visitingHours" value={editData.visitingHours} onChange={handleEditChange} className={inputClass} required />{errorText(editErrors.visitingHours)}</div>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div><label className="block text-xs font-bold text-slate-600 mb-1">Theme Configuration</label><select name="theme" value={editData.theme} onChange={handleEditChange} className={inputClass}><option value="gold-dark">Gold Signature</option><option value="classic-blue">Classic Blue</option><option value="nature-green">Nature Green</option></select></div>
-                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Tagline</label><input type="text" name="tagline" value={editData.tagline} onChange={handleEditChange} className={inputClass} required /></div>
+                        <div><label className="block text-xs font-bold text-slate-600 mb-1">Tagline</label><input type="text" name="tagline" value={editData.tagline} onChange={handleEditChange} className={inputClass} required />{errorText(editErrors.tagline)}</div>
                     </div>
 
-                    <div><label className="block text-xs font-bold text-slate-600 mb-1">About Section (Bio)</label><textarea name="about" value={editData.about} onChange={handleEditChange} rows="3" className={inputClass} required></textarea></div>
-                    <div><label className="block text-xs font-bold text-slate-600 mb-1">Homepage Hero Headline</label><input type="text" name="heroHeadline" maxLength="80" value={editData.heroHeadline || ''} onChange={handleEditChange} className={inputClass} required /></div>
-                    <div><label className="block text-xs font-bold text-slate-600 mb-1">Treatments / Services</label><textarea name="services" value={editData.services} onChange={handleEditChange} rows="2" className={inputClass} required></textarea></div>
+                    <div><label className="block text-xs font-bold text-slate-600 mb-1">About Section (Bio)</label><textarea name="about" value={editData.about} onChange={handleEditChange} rows="3" className={inputClass} required></textarea>{errorText(editErrors.about)}</div>
+                    <div><label className="block text-xs font-bold text-slate-600 mb-1">Homepage Hero Headline</label><input type="text" name="heroHeadline" maxLength="80" value={editData.heroHeadline || ''} onChange={handleEditChange} className={inputClass} required />{errorText(editErrors.heroHeadline)}</div>
+                    <div><label className="block text-xs font-bold text-slate-600 mb-1">Treatments / Services</label><textarea name="services" value={editData.services} onChange={handleEditChange} rows="2" className={inputClass} required></textarea>{errorText(editErrors.services)}</div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-100 p-4 rounded-lg border border-slate-200">
                         <div>
                             <label className="block text-xs font-bold text-slate-600 mb-2">Force Replace Profile Photo</label>
-                            <FileUpload label="Replace profile photo" hint="JPG, PNG or WebP, maximum 5MB" compact onChange={handleProfilePhoto} onDiscard={() => setProfilePhoto(null)} files={profilePhoto} icon="fa-user-doctor" />
+                            <FileUpload label="Replace profile photo" hint="JPG, PNG or WebP, maximum 5MB" compact onChange={handleProfilePhoto} onDiscard={() => setProfilePhoto(null)} files={profilePhoto} icon="fa-user-doctor" error={editErrors.profilePhoto} />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-600 mb-2">Force Replace Clinic Photos</label>
-                            <FileUpload label="Replace clinic gallery" hint="Up to 8 images, maximum 5MB each" multiple onChange={handleSliderImages} onDiscard={(index) => setSliderImages(current => current.filter((_, itemIndex) => itemIndex !== index))} files={sliderImages} icon="fa-images" />
+                            <FileUpload label="Replace clinic gallery" hint="Up to 8 images, maximum 5MB each" multiple onChange={handleSliderImages} onDiscard={(index) => setSliderImages(current => current.filter((_, itemIndex) => itemIndex !== index))} files={sliderImages} icon="fa-images" error={editErrors.sliderImages} />
                         </div>
                     </div>
                 </form>

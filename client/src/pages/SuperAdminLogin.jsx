@@ -4,11 +4,13 @@ import axios from 'axios';
 import ThemeToggle from '../components/ThemeToggle';
 import { getSessionToken, setSessionToken } from '../utils/auth';
 import OtpVerification from '../components/OtpVerification';
+import { firstError, getApiFieldErrors, validateLogin } from '../utils/formValidation';
 
 const SuperAdminLogin = () => {
   const navigate = useNavigate();
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [otpChallenge, setOtpChallenge] = useState(null);
 
@@ -20,15 +22,30 @@ const SuperAdminLogin = () => {
   const handleChange = (e) => {
     setLoginData({ ...loginData, [e.target.name]: e.target.value });
     setError('');
+    setFieldErrors(current => {
+      if (!current[e.target.name]) return current;
+      const next = { ...current };
+      delete next[e.target.name];
+      return next;
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const errors = validateLogin({ identifier: loginData.email, password: loginData.password });
+    setFieldErrors({ email: errors.identifier, password: errors.password });
+    const message = firstError(errors);
+    if (message) {
+      setError(message);
+      return;
+    }
     setLoading(true);
     try {
       const res = await axios.post('/api/admin/login', loginData);
       if (res.data.requiresOtp) setOtpChallenge(res.data);
     } catch (err) {
+      const apiErrors = getApiFieldErrors(err);
+      setFieldErrors(apiErrors);
       setError(err.response?.data?.message || 'Invalid Credentials');
     } finally {
       setLoading(false);
@@ -36,6 +53,7 @@ const SuperAdminLogin = () => {
   };
 
   const inputClass = "field-modern";
+  const errorText = message => message ? <p className="mt-2 text-xs font-bold text-red-600">{message}</p> : null;
 
   return (
     <div className="min-h-screen flex items-center justify-center app-shell p-4">
@@ -52,14 +70,16 @@ const SuperAdminLogin = () => {
             <p className="text-xs uppercase tracking-[.2em] font-bold text-teal-600">Super administrator</p>
             <h2 className="text-3xl font-extrabold text-slate-900 mt-2">Secure access</h2>
             <p className="text-sm text-slate-500 mt-2 mb-8">Sign in to manage the CareGrid network.</p>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             <div>
               <label className="block mb-2 text-xs uppercase tracking-wider font-bold text-slate-500">Email Address</label>
               <input type="email" name="email" autoComplete="username" required onChange={handleChange} className={inputClass} placeholder="Super admin email" />
+              {errorText(fieldErrors.email)}
             </div>
             <div>
               <label className="block mb-2 text-xs uppercase tracking-wider font-bold text-slate-500">Password</label>
               <input type="password" name="password" autoComplete="current-password" required onChange={handleChange} className={inputClass} placeholder="Enter Master Password" />
+              {errorText(fieldErrors.password)}
             </div>
             {error && <div className="text-red-400 text-sm font-bold text-center">{error}</div>}
             <button type="submit" disabled={loading} className="w-full btn-primary py-4">

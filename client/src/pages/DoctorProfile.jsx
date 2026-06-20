@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import GallerySlider from '../components/GallerySlider';
 import ThemeToggle from '../components/ThemeToggle';
+import { firstError, getApiFieldErrors, validateAppointment } from '../utils/formValidation';
 
 const DoctorProfile = () => {
   const { slug } = useParams();
@@ -11,6 +12,7 @@ const DoctorProfile = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [appointmentLoading, setAppointmentLoading] = useState(false);
   const [appointmentNotice, setAppointmentNotice] = useState({ type: '', text: '' });
+  const [appointmentErrors, setAppointmentErrors] = useState({});
   const [appointmentForm, setAppointmentForm] = useState({
     patientName: '', phone: '', email: '', treatment: '', preferredDate: '', timeSlot: '', message: ''
   });
@@ -61,10 +63,23 @@ const DoctorProfile = () => {
   const handleAppointmentChange = (e) => {
     setAppointmentForm(current => ({ ...current, [e.target.name]: e.target.value }));
     setAppointmentNotice({ type: '', text: '' });
+    setAppointmentErrors(current => {
+      if (!current[e.target.name]) return current;
+      const next = { ...current };
+      delete next[e.target.name];
+      return next;
+    });
   };
 
   const handleAppointmentSubmit = async (e) => {
     e.preventDefault();
+    const errors = validateAppointment(appointmentForm);
+    setAppointmentErrors(errors);
+    const message = firstError(errors);
+    if (message) {
+      setAppointmentNotice({ type: 'error', text: message });
+      return;
+    }
     setAppointmentLoading(true);
     setAppointmentNotice({ type: '', text: '' });
     try {
@@ -76,6 +91,7 @@ const DoctorProfile = () => {
         setAppointmentNotice({ type: '', text: '' });
       }, 900);
     } catch (error) {
+      setAppointmentErrors(getApiFieldErrors(error));
       setAppointmentNotice({ type: 'error', text: error.response?.data?.message || 'Could not submit appointment request.' });
     } finally {
       setAppointmentLoading(false);
@@ -138,6 +154,7 @@ const DoctorProfile = () => {
     localStorage.setItem(`doctorSiteMode_${slug}`, next ? 'dark' : 'light');
   };
   const mapQuery = [doctor.personalDetails.clinicName, doctor.personalDetails.location, 'India'].filter(Boolean).join(', ');
+  const appointmentFieldError = field => appointmentErrors[field] ? <p className="mt-1.5 text-xs font-bold text-red-500">{appointmentErrors[field]}</p> : null;
 
   return (
     <div className={`${t.bg} ${t.text} w-full min-h-screen relative overflow-x-hidden transition-colors duration-500`}>
@@ -287,21 +304,24 @@ const DoctorProfile = () => {
             
             <h2 className="text-center text-2xl font-bold mb-6 flex items-center justify-center gap-3"><i className="fas fa-calendar-check" style={{ color: t.accentHex }}></i> Book Appointment</h2>
             
-            <form onSubmit={handleAppointmentSubmit} className="grid sm:grid-cols-2 gap-4 text-left">
+            <form onSubmit={handleAppointmentSubmit} className="grid sm:grid-cols-2 gap-4 text-left" noValidate>
               
               <div>
                 <label className="block mb-1.5 text-sm font-semibold opacity-90"><i className="fas fa-user mr-2" style={{ color: t.accentHex }}></i> Patient Name</label>
                 <input type="text" name="patientName" minLength="2" maxLength="100" value={appointmentForm.patientName} onChange={handleAppointmentChange} required placeholder="Enter full name" className={`w-full p-3 rounded-lg border ${t.borderColor} bg-transparent focus:outline-none focus:ring-2`} style={{ focusRingColor: t.accentHex }} />
+                {appointmentFieldError('patientName')}
               </div>
 
               <div>
                 <label className="block mb-1.5 text-sm font-semibold opacity-90"><i className="fas fa-mobile-alt mr-2" style={{ color: t.accentHex }}></i> Mobile Number</label>
                 <input type="tel" name="phone" pattern="[+0-9 ()-]{7,20}" value={appointmentForm.phone} onChange={handleAppointmentChange} required placeholder="Enter mobile number" className={`w-full p-3 rounded-lg border ${t.borderColor} bg-transparent focus:outline-none focus:ring-2`} style={{ focusRingColor: t.accentHex }} />
+                {appointmentFieldError('phone')}
               </div>
 
               <div className="sm:col-span-2">
                 <label className="block mb-1.5 text-sm font-semibold opacity-90"><i className="fas fa-envelope mr-2" style={{ color: t.accentHex }}></i> Email (Optional)</label>
                 <input type="email" name="email" value={appointmentForm.email} onChange={handleAppointmentChange} placeholder="Enter email address" className={`w-full p-3 rounded-lg border ${t.borderColor} bg-transparent focus:outline-none focus:ring-2`} style={{ focusRingColor: t.accentHex }} />
+                {appointmentFieldError('email')}
               </div>
 
               <div className="sm:col-span-2">
@@ -313,11 +333,13 @@ const DoctorProfile = () => {
                   ))}
                   <option value="General Consultation" className="text-black">General Consultation</option>
                 </select>
+                {appointmentFieldError('treatment')}
               </div>
 
               <div>
                 <label className="block mb-1.5 text-sm font-semibold opacity-90"><i className="fas fa-calendar-day mr-2" style={{ color: t.accentHex }}></i> Preferred Date</label>
                 <input type="date" name="preferredDate" value={appointmentForm.preferredDate} onChange={handleAppointmentChange} min={new Date().toISOString().split('T')[0]} required className={`w-full p-3 rounded-lg border ${t.borderColor} bg-transparent focus:outline-none focus:ring-2`} style={{ focusRingColor: t.accentHex }} />
+                {appointmentFieldError('preferredDate')}
               </div>
 
               <div>
@@ -331,11 +353,13 @@ const DoctorProfile = () => {
                     <option value="Afternoon" className="text-black">Afternoon Slot</option>
                     <option value="Evening" className="text-black">Evening Slot</option>
                 </select>
+                {appointmentFieldError('timeSlot')}
               </div>
 
               <div className="sm:col-span-2">
                 <label className="block mb-1.5 text-sm font-semibold opacity-90"><i className="fas fa-comment-alt mr-2" style={{ color: t.accentHex }}></i> Additional Message</label>
                 <textarea name="message" maxLength="1000" value={appointmentForm.message} onChange={handleAppointmentChange} rows="2" placeholder="Describe your problem..." className={`w-full p-3 rounded-lg border ${t.borderColor} bg-transparent focus:outline-none focus:ring-2 resize-none`} style={{ focusRingColor: t.accentHex }}></textarea>
+                {appointmentFieldError('message')}
               </div>
 
               {appointmentNotice.text && (

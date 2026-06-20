@@ -7,7 +7,7 @@ exports.createAppointment = async (req, res, next) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (requestedDate < today) {
-      return res.status(400).json({ success: false, message: 'Preferred date cannot be in the past' });
+      return res.status(400).json({ success: false, message: 'Preferred date cannot be in the past', errors: { preferredDate: 'Preferred date cannot be in the past' } });
     }
 
     const doctor = await Doctor.findOne({ slug: req.params.slug }).select('name slug personalDetails.clinicName');

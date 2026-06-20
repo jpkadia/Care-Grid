@@ -21,11 +21,11 @@ exports.registerDoctor = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Please verify the same email before creating your website.' });
     }
     if (!req.files?.profilePhoto?.[0]) {
-      return res.status(400).json({ success: false, message: 'A profile photo is required.' });
+      return res.status(400).json({ success: false, message: 'A profile photo is required.', errors: { profilePhoto: 'A profile photo is required.' } });
     }
     const existingEmail = await Doctor.findOne({ "personalDetails.email": req.body.email });
     if (existingEmail) {
-      return res.status(400).json({ success: false, message: "Email already exists" });
+      return res.status(409).json({ success: false, message: "Email already exists", errors: { email: 'This email is already registered.' } });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -125,7 +125,7 @@ exports.updateDoctor = async (req, res, next) => {
     }
 
     if (req.body.email && req.body.email !== doctor.personalDetails.email) {
-      return res.status(400).json({ success: false, message: 'Login email cannot be changed from the profile editor. Contact the super admin.' });
+      return res.status(400).json({ success: false, message: 'Login email cannot be changed from the profile editor. Contact the super admin.', errors: { email: 'Login email cannot be changed from the profile editor. Contact the super admin.' } });
     }
 
     const doctorResponse = await applyDoctorProfileUpdate({ doctor, body: req.body, files: req.files });

@@ -9,6 +9,7 @@ import { useUi } from '../components/UiProvider';
 import { clearSessionToken, getSessionToken, setSessionToken } from '../utils/auth';
 import FileUpload from '../components/FileUpload';
 import OtpVerification from '../components/OtpVerification';
+import { firstError, getApiFieldErrors, validateDoctorUpdate, validateLogin, validatePasswordReset } from '../utils/formValidation';
 
 const AdminPanel = () => {
   const { slug } = useParams();
@@ -21,11 +22,13 @@ const AdminPanel = () => {
   
   const [loginData, setLoginData] = useState({ identifier: '', password: '' });
   const [loginError, setLoginError] = useState('');
+  const [loginErrors, setLoginErrors] = useState({});
   const [otpChallenge, setOtpChallenge] = useState(null);
   const [forgotStage, setForgotStage] = useState(null);
   const [resetEmail, setResetEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [newPasswords, setNewPasswords] = useState({ newPassword: '', confirmPassword: '' });
+  const [resetErrors, setResetErrors] = useState({});
 
   const [doctorData, setDoctorData] = useState(null);
   
@@ -37,6 +40,7 @@ const AdminPanel = () => {
   
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [sliderImages, setSliderImages] = useState([]);
+  const [updateErrors, setUpdateErrors] = useState({});
   const [updateLoading, setUpdateLoading] = useState(false);
   const [appointments, setAppointments] = useState([]);
 
@@ -88,15 +92,29 @@ const AdminPanel = () => {
   const handleLoginChange = (e) => {
     setLoginData({ ...loginData, [e.target.name]: e.target.value });
     setLoginError('');
+    setLoginErrors(current => {
+      if (!current[e.target.name]) return current;
+      const next = { ...current };
+      delete next[e.target.name];
+      return next;
+    });
   };
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
+    const errors = validateLogin(loginData);
+    setLoginErrors(errors);
+    const message = firstError(errors);
+    if (message) {
+      setLoginError(message);
+      return;
+    }
     setLoading(true);
     try {
       const res = await axios.post(`/api/doctors/${slug}/login`, loginData);
       if (res.data.requiresOtp) setOtpChallenge(res.data);
     } catch (err) {
+      setLoginErrors(getApiFieldErrors(err));
       setLoginError(err.response?.data?.message || 'Invalid Login');
     } finally {
       setLoading(false);
@@ -107,6 +125,11 @@ const AdminPanel = () => {
     e.preventDefault();
     setLoading(true);
     setLoginError('');
+    if (!resetEmail.trim()) {
+      setLoginError('Registered email is required.');
+      setLoading(false);
+      return;
+    }
     try {
       const res = await axios.post(`/api/doctors/${slug}/forgot-password`, { email: resetEmail });
       setOtpChallenge(res.data);
@@ -122,6 +145,14 @@ const AdminPanel = () => {
     e.preventDefault();
     setLoading(true);
     setLoginError('');
+    const errors = validatePasswordReset(newPasswords);
+    setResetErrors(errors);
+    const message = firstError(errors);
+    if (message) {
+      setLoginError(message);
+      setLoading(false);
+      return;
+    }
     try {
       const res = await axios.post(`/api/doctors/${slug}/reset-password`, { resetToken, ...newPasswords });
       toast(res.data.message);
@@ -130,6 +161,7 @@ const AdminPanel = () => {
       setResetToken('');
       setNewPasswords({ newPassword: '', confirmPassword: '' });
     } catch (err) {
+      setResetErrors(getApiFieldErrors(err));
       setLoginError(err.response?.data?.message || 'Could not update password.');
     } finally {
       setLoading(false);
@@ -144,23 +176,47 @@ const AdminPanel = () => {
 
   const handleEditChange = (e) => {
     setEditData({ ...editData, [e.target.name]: e.target.value });
+    setUpdateErrors(current => {
+      if (!current[e.target.name]) return current;
+      const next = { ...current };
+      delete next[e.target.name];
+      return next;
+    });
   };
 
   const handleProfilePhotoChange = (e) => {
     const file = e.target.files[0];
-    if (file && file.size > 5 * 1024 * 1024) return toast('Profile photo must be smaller than 5MB.', 'error');
+    if (file && file.size > 5 * 1024 * 1024) {
+      setUpdateErrors(current => ({ ...current, profilePhoto: 'Profile photo must be smaller than 5MB.' }));
+      return;
+    }
     setProfilePhoto(file);
+    setUpdateErrors(current => ({ ...current, profilePhoto: '' }));
   };
 
   const handleSliderImagesChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 8) return toast('You can upload a maximum of 8 clinic photos.', 'error');
-    if (files.some(file => file.size > 5 * 1024 * 1024)) return toast('Each clinic photo must be smaller than 5MB.', 'error');
+    if (files.length > 8) {
+      setUpdateErrors(current => ({ ...current, sliderImages: 'You can upload a maximum of 8 clinic photos.' }));
+      return;
+    }
+    if (files.some(file => file.size > 5 * 1024 * 1024)) {
+      setUpdateErrors(current => ({ ...current, sliderImages: 'Each clinic photo must be smaller than 5MB.' }));
+      return;
+    }
     setSliderImages(files);
+    setUpdateErrors(current => ({ ...current, sliderImages: '' }));
   };
 
   const handleUpdateSubmit = async (e) => {
     e.preventDefault();
+    const errors = validateDoctorUpdate(editData);
+    setUpdateErrors(errors);
+    const message = firstError(errors);
+    if (message) {
+      toast(message, 'error');
+      return;
+    }
     setUpdateLoading(true);
     try {
       const token = getSessionToken(tokenKey);
@@ -192,6 +248,7 @@ const AdminPanel = () => {
         setSliderImages([]);
       }
     } catch (err) {
+      setUpdateErrors(getApiFieldErrors(err));
       toast(err.response?.data?.message || "Failed to update profile.", 'error');
       if (err.response?.status === 401) handleLogout();
     } finally {
@@ -203,6 +260,7 @@ const AdminPanel = () => {
   const labelClass = "block mb-2 text-xs uppercase tracking-wider font-bold text-slate-500";
   const cardClass = "dashboard-card overflow-hidden";
   const cardHeaderClass = "px-6 py-5 border-b border-slate-100 font-extrabold text-slate-900 text-lg flex items-center gap-3";
+  const errorText = message => message ? <p className="mt-2 text-xs font-bold text-red-600">{message}</p> : null;
 
   if (loading) return <div className="min-h-screen flex items-center justify-center app-shell text-teal-700 text-xl font-bold"><i className="fas fa-circle-notch animate-spin mr-3"></i>Preparing dashboard...</div>;
 
@@ -218,16 +276,18 @@ const AdminPanel = () => {
           </div>
           <div className="p-8 sm:p-12 bg-white">
             <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center mb-8 lg:hidden"><i className="fas fa-heart-pulse"></i></div>
-            {forgotStage === 'reset' ? <form onSubmit={submitNewPassword} className="space-y-5 animate-rise">
+            {forgotStage === 'reset' ? <form onSubmit={submitNewPassword} className="space-y-5 animate-rise" noValidate>
               <p className="text-xs uppercase tracking-[.2em] font-bold text-teal-600">Account recovery</p>
               <h2 className="text-3xl font-extrabold text-slate-900">Create new password</h2>
               <p className="text-sm text-slate-500">Use at least 8 characters with uppercase, lowercase, number and special character.</p>
-              <input type="password" autoComplete="new-password" required minLength="8" className={inputClass} placeholder="New password" value={newPasswords.newPassword} onChange={(e) => setNewPasswords({ ...newPasswords, newPassword: e.target.value })} />
-              <input type="password" autoComplete="new-password" required minLength="8" className={inputClass} placeholder="Confirm new password" value={newPasswords.confirmPassword} onChange={(e) => setNewPasswords({ ...newPasswords, confirmPassword: e.target.value })} />
+              <input type="password" autoComplete="new-password" required minLength="8" className={inputClass} placeholder="New password" value={newPasswords.newPassword} onChange={(e) => { setNewPasswords({ ...newPasswords, newPassword: e.target.value }); setResetErrors({ ...resetErrors, newPassword: '' }); }} />
+              {errorText(resetErrors.newPassword)}
+              <input type="password" autoComplete="new-password" required minLength="8" className={inputClass} placeholder="Confirm new password" value={newPasswords.confirmPassword} onChange={(e) => { setNewPasswords({ ...newPasswords, confirmPassword: e.target.value }); setResetErrors({ ...resetErrors, confirmPassword: '' }); }} />
+              {errorText(resetErrors.confirmPassword)}
               {loginError && <div className="text-red-500 text-sm font-bold">{loginError}</div>}
               <button disabled={loading} type="submit" className="w-full btn-primary py-4">{loading ? 'Updating...' : 'Update password'}</button>
               <button type="button" onClick={() => setForgotStage(null)} className="text-sm font-bold text-slate-500">Back to login</button>
-            </form> : forgotStage === 'otp' && otpChallenge ? <OtpVerification challenge={otpChallenge} onBack={() => { setForgotStage('request'); setOtpChallenge(null); }} onVerified={(result) => { setResetToken(result.resetToken); setForgotStage('reset'); setOtpChallenge(null); }} /> : forgotStage === 'request' ? <form onSubmit={requestPasswordReset} className="space-y-5 animate-rise">
+            </form> : forgotStage === 'otp' && otpChallenge ? <OtpVerification challenge={otpChallenge} onBack={() => { setForgotStage('request'); setOtpChallenge(null); }} onVerified={(result) => { setResetToken(result.resetToken); setForgotStage('reset'); setOtpChallenge(null); }} /> : forgotStage === 'request' ? <form onSubmit={requestPasswordReset} className="space-y-5 animate-rise" noValidate>
               <p className="text-xs uppercase tracking-[.2em] font-bold text-teal-600">Account recovery</p>
               <h2 className="text-3xl font-extrabold text-slate-900">Forgot password?</h2>
               <p className="text-sm text-slate-500">Enter the email registered with this doctor website. We will send a secure verification code.</p>
@@ -239,14 +299,16 @@ const AdminPanel = () => {
               <p className="text-xs uppercase tracking-[.2em] font-bold text-teal-600">Doctor portal</p>
               <h2 className="text-3xl font-extrabold text-slate-900 mt-2">Welcome back</h2>
               <p className="text-sm text-slate-500 mt-2 mb-8">Manage portal for <span className="font-bold text-teal-700">{slug}</span></p>
-              <form onSubmit={handleLoginSubmit} className="space-y-5">
+              <form onSubmit={handleLoginSubmit} className="space-y-5" noValidate>
               <div>
                 <label className={labelClass}>Email or Mobile Number</label>
                 <input type="text" name="identifier" autoComplete="username" required onChange={handleLoginChange} className={inputClass} placeholder="Registered Email or Phone" />
+                {errorText(loginErrors.identifier)}
               </div>
               <div>
                 <label className={labelClass}>Password</label>
                 <input type="password" name="password" autoComplete="current-password" required onChange={handleLoginChange} className={inputClass} placeholder="Enter Password" />
+                {errorText(loginErrors.password)}
               </div>
               <div className="text-right"><button type="button" onClick={() => { setForgotStage('request'); setLoginError(''); }} className="text-sm font-bold text-teal-700 hover:text-teal-900">Forgot password?</button></div>
               {loginError && <div className="text-red-500 text-sm font-bold text-center">{loginError}</div>}
@@ -283,24 +345,24 @@ const AdminPanel = () => {
         />
         
         <div className="pt-4"><p className="text-xs uppercase tracking-[.2em] font-bold text-teal-600">Website settings</p><h2 className="text-2xl font-extrabold text-slate-900 mt-2">Manage your digital clinic</h2></div>
-        <form onSubmit={handleUpdateSubmit} className="grid xl:grid-cols-2 gap-6">
+        <form onSubmit={handleUpdateSubmit} className="grid xl:grid-cols-2 gap-6" noValidate>
           
           <div className={cardClass}>
             <div className={cardHeaderClass}><i className="fas fa-id-card text-blue-500"></i> Personal & Professional Info</div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div><label className={labelClass}>Doctor Name</label><input type="text" name="name" value={editData.name} onChange={handleEditChange} className={inputClass} required /></div>
-              <div><label className={labelClass}>Qualification</label><input type="text" name="education" value={editData.education} onChange={handleEditChange} className={inputClass} required /></div>
-              <div><label className={labelClass}>Speciality</label><input type="text" name="speciality" value={editData.speciality} onChange={handleEditChange} className={inputClass} required /></div>
-              <div><label className={labelClass}>Login Email Address</label><input type="email" name="email" value={editData.email} className={`${inputClass} cursor-not-allowed opacity-70`} readOnly /><p className="text-xs text-slate-500 mt-2">For account security, contact the super admin to change this email.</p></div>
+              <div><label className={labelClass}>Doctor Name</label><input type="text" name="name" value={editData.name} onChange={handleEditChange} className={inputClass} required />{errorText(updateErrors.name)}</div>
+              <div><label className={labelClass}>Qualification</label><input type="text" name="education" value={editData.education} onChange={handleEditChange} className={inputClass} required />{errorText(updateErrors.education)}</div>
+              <div><label className={labelClass}>Speciality</label><input type="text" name="speciality" value={editData.speciality} onChange={handleEditChange} className={inputClass} required />{errorText(updateErrors.speciality)}</div>
+              <div><label className={labelClass}>Login Email Address</label><input type="email" name="email" value={editData.email} className={`${inputClass} cursor-not-allowed opacity-70`} readOnly /><p className="text-xs text-slate-500 mt-2">For account security, contact the super admin to change this email.</p>{errorText(updateErrors.email)}</div>
             </div>
           </div>
 
           <div className={cardClass}>
             <div className={cardHeaderClass}><i className="fas fa-clinic-medical text-blue-500"></i> Clinic Details & Timings</div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div><label className={labelClass}>Clinic / Hospital Name</label><input type="text" name="clinicName" value={editData.clinicName} onChange={handleEditChange} className={inputClass} required /></div>
-              <div><label className={labelClass}>Phone Number</label><input type="tel" name="phone" inputMode="numeric" pattern="\d{10}" minLength="10" maxLength="10" title="Enter exactly 10 digits" value={editData.phone} onChange={(e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10); handleEditChange(e); }} className={inputClass} required /></div>
-              <div className="md:col-span-2"><label className={labelClass}>Clinic Address</label><textarea name="location" value={editData.location} onChange={handleEditChange} rows="2" className={`${inputClass} resize-y`} required></textarea></div>
+              <div><label className={labelClass}>Clinic / Hospital Name</label><input type="text" name="clinicName" value={editData.clinicName} onChange={handleEditChange} className={inputClass} required />{errorText(updateErrors.clinicName)}</div>
+              <div><label className={labelClass}>Phone Number</label><input type="tel" name="phone" inputMode="numeric" pattern="\d{10}" minLength="10" maxLength="10" title="Enter exactly 10 digits" value={editData.phone} onChange={(e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10); handleEditChange(e); }} className={inputClass} required />{errorText(updateErrors.phone)}</div>
+              <div className="md:col-span-2"><label className={labelClass}>Clinic Address</label><textarea name="location" value={editData.location} onChange={handleEditChange} rows="2" className={`${inputClass} resize-y`} required></textarea>{errorText(updateErrors.location)}</div>
               <div>
                 <label className={labelClass}>Work Days</label>
                 <select name="workDays" value={editData.workDays} onChange={handleEditChange} className={inputClass} required>
@@ -309,6 +371,7 @@ const AdminPanel = () => {
                   <option value="Monday – Sunday (Daily)">Monday – Sunday (Daily)</option>
                   <option value="By Appointment Only">By Appointment Only</option>
                 </select>
+                {errorText(updateErrors.workDays)}
               </div>
               <div>
                 <label className={labelClass}>Visiting Hours</label>
@@ -318,6 +381,7 @@ const AdminPanel = () => {
                   <option value="11:00 AM - 08:00 PM">11:00 AM - 08:00 PM</option>
                   <option value="24 Hours Open">24 Hours Open</option>
                 </select>
+                {errorText(updateErrors.visitingHours)}
               </div>
             </div>
           </div>
@@ -339,10 +403,10 @@ const AdminPanel = () => {
                   </label>
                 </div>
               </div>
-              <div><label className={labelClass}>Tagline (Catchy phrase)</label><input type="text" name="tagline" value={editData.tagline} onChange={handleEditChange} className={inputClass} required /></div>
-              <div><label className={labelClass}>Homepage Hero Headline</label><input type="text" name="heroHeadline" maxLength="80" value={editData.heroHeadline} onChange={handleEditChange} className={inputClass} required /></div>
-              <div><label className={labelClass}>About Section (Bio)</label><textarea name="about" value={editData.about} onChange={handleEditChange} rows="4" className={`${inputClass} resize-y`} required></textarea></div>
-              <div><label className={labelClass}>Treatments / Services (Comma Separated)</label><textarea name="services" value={editData.services} onChange={handleEditChange} rows="2" className={`${inputClass} resize-y`} required></textarea></div>
+              <div><label className={labelClass}>Tagline (Catchy phrase)</label><input type="text" name="tagline" value={editData.tagline} onChange={handleEditChange} className={inputClass} required />{errorText(updateErrors.tagline)}</div>
+              <div><label className={labelClass}>Homepage Hero Headline</label><input type="text" name="heroHeadline" maxLength="80" value={editData.heroHeadline} onChange={handleEditChange} className={inputClass} required />{errorText(updateErrors.heroHeadline)}</div>
+              <div><label className={labelClass}>About Section (Bio)</label><textarea name="about" value={editData.about} onChange={handleEditChange} rows="4" className={`${inputClass} resize-y`} required></textarea>{errorText(updateErrors.about)}</div>
+              <div><label className={labelClass}>Treatments / Services (Comma Separated)</label><textarea name="services" value={editData.services} onChange={handleEditChange} rows="2" className={`${inputClass} resize-y`} required></textarea>{errorText(updateErrors.services)}</div>
             </div>
           </div>
 
@@ -354,14 +418,14 @@ const AdminPanel = () => {
                 <label className={labelClass}>Update Profile Photo</label>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4 mt-2">
                   <img src={doctorData?.photoUrl} alt="Current" className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md" />
-                  <div className="flex-1"><FileUpload label="Replace profile photo" hint="JPG, PNG or WebP, maximum 5MB" compact onChange={handleProfilePhotoChange} onDiscard={() => setProfilePhoto(null)} files={profilePhoto} icon="fa-user-doctor" /></div>
+                  <div className="flex-1"><FileUpload label="Replace profile photo" hint="JPG, PNG or WebP, maximum 5MB" compact onChange={handleProfilePhotoChange} onDiscard={() => setProfilePhoto(null)} files={profilePhoto} icon="fa-user-doctor" error={updateErrors.profilePhoto} /></div>
                 </div>
                 <p className="text-xs text-slate-500 mt-2">Leave blank to keep your current photo.</p>
               </div>
 
               <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
                 <label className={labelClass}>Update Clinic Photos (Select multiple to replace existing)</label>
-                <FileUpload label="Replace clinic gallery" hint="Up to 8 images, maximum 5MB each" multiple onChange={handleSliderImagesChange} onDiscard={(index) => setSliderImages(current => current.filter((_, itemIndex) => itemIndex !== index))} files={sliderImages} icon="fa-images" />
+                <FileUpload label="Replace clinic gallery" hint="Up to 8 images, maximum 5MB each" multiple onChange={handleSliderImagesChange} onDiscard={(index) => setSliderImages(current => current.filter((_, itemIndex) => itemIndex !== index))} files={sliderImages} icon="fa-images" error={updateErrors.sliderImages} />
                 <p className="text-xs text-slate-500 mt-2">Selecting new files will replace your current {doctorData?.sliderImages?.length || 0} slider images. Leave blank to keep current images.</p>
               </div>
 
